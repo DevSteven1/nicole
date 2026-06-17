@@ -24,6 +24,6 @@ export const config = {
     provider: process.env.LLM_PROVIDER ?? "opencode",
     apiKey: process.env.OPENCODE_API_KEY ?? "",
     baseUrl: process.env.OPENCODE_BASE_URL ?? "https://opencode.ai/zen/go/v1",
-    model: process.env.OPENCODE_MODEL ?? "kimi-k2.7-code",
+    model: process.env.OPENCODE_MODEL ?? "deepseek-v4-flash",
   },
 };
