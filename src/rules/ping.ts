@@ -5,6 +5,9 @@ import type { Macro } from "../engine/types.js";
 // punta a punta que el motor responde por WhatsApp.
 export const ping: Macro = {
   name: "ping",
+  // Prioridad alta: corta antes que el triage para no gastar una llamada de IA
+  // en el canario.
+  priority: 200,
   match: or(text("ping"), text("!ping")),
   run: (ctx) => ctx.reply("pong"),
 };

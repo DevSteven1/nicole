@@ -81,6 +81,14 @@ En construccion, por partes. Cada parte es un commit atomico:
 - [x] Abstraccion de IA (`LLMProvider`) y adapter opencode
 - [x] Primeras macros de ejemplo e integracion motor <-> WhatsApp
 
+Fase de soporte (en curso):
+
+- [x] Memoria por chat + IA en el contexto (`ai` / `propose` / `emit`)
+- [x] Macro de triage: propone tickets a partir de pedidos de soporte
+- [ ] Dedup: no re-proponer un ticket ya emitido en el mismo chat
+- [ ] Handoff real: emitir la intencion al agente que crea el ticket
+- [ ] Respuestas automaticas (fase avanzada)
+
 ## Convenciones
 
 Ver [AGENT.md](AGENT.md) para el estilo, las convenciones de commits y el flujo
