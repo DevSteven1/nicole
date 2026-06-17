@@ -1,5 +1,6 @@
 import { config } from "./config.js";
 import { MacroEngine } from "./engine/engine.js";
+import { createInMemoryStore } from "./engine/memory.js";
 import { createProvider } from "./llm/index.js";
 import { logger } from "./logger.js";
 import { rules } from "./rules/index.js";
@@ -20,7 +21,8 @@ async function main(): Promise<void> {
     llm ? "IA disponible" : "IA no configurada (falta API key)",
   );
 
-  const engine = new MacroEngine(logger).registerAll(rules);
+  const memory = createInMemoryStore();
+  const engine = new MacroEngine(logger, { llm, memory }).registerAll(rules);
   logger.info({ macros: engine.list().map((m) => m.name) }, "macros registradas");
 
   await startWhatsApp({
