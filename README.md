@@ -40,7 +40,14 @@ pnpm test         # correr las pruebas
 - `READ_ONLY` (default `true`): en `true` nicole no envia nada. Poner `false`
   para habilitar respuestas.
 - `AUTH_DIR` (default `auth_state`): carpeta de la sesion de WhatsApp.
+- `LLM_PROVIDER` (default `opencode`): proveedor de IA activo.
+- `OPENCODE_API_KEY`: clave de OpenCode Go. Sin ella la IA queda desactivada.
+- `OPENCODE_BASE_URL` (default `https://opencode.ai/zen/go/v1`) y
+  `OPENCODE_MODEL` (default `kimi-k2.7-code`).
 - `LOG_LEVEL` (default `info`) y `BAILEYS_LOG_LEVEL` (default `warn`).
+
+Las variables se pueden poner en un archivo `.env` (ver `.env.example`); nicole
+lo carga solo al arrancar.
 
 ## Arquitectura
 
@@ -71,7 +78,7 @@ En construccion, por partes. Cada parte es un commit atomico:
 - [x] Documentacion y convenciones
 - [x] Conexion a WhatsApp (Baileys)
 - [x] Motor de macros
-- [ ] Abstraccion de IA (`LLMProvider`) y primer adapter
+- [x] Abstraccion de IA (`LLMProvider`) y adapter opencode
 - [x] Primeras macros de ejemplo e integracion motor <-> WhatsApp
 
 ## Convenciones

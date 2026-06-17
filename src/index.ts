@@ -1,5 +1,6 @@
 import { config } from "./config.js";
 import { MacroEngine } from "./engine/engine.js";
+import { createProvider } from "./llm/index.js";
 import { logger } from "./logger.js";
 import { rules } from "./rules/index.js";
 import { startWhatsApp } from "./whatsapp/client.js";
@@ -12,6 +13,12 @@ async function main(): Promise<void> {
   } else {
     logger.warn("modo de ENVIO activo: nicole puede responder por WhatsApp");
   }
+
+  const llm = createProvider();
+  logger.info(
+    { provider: llm?.name ?? "ninguno" },
+    llm ? "IA disponible" : "IA no configurada (falta API key)",
+  );
 
   const engine = new MacroEngine(logger).registerAll(rules);
   logger.info({ macros: engine.list().map((m) => m.name) }, "macros registradas");
