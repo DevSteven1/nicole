@@ -1,5 +1,22 @@
-// Punto de entrada de nicole.
-// El arranque real (conexion a WhatsApp + motor de macros) se implementa
-// por partes en los siguientes commits.
+import { logger } from "./logger.js";
+import { startWhatsApp } from "./whatsapp/client.js";
 
-console.log("nicole: scaffold");
+async function main(): Promise<void> {
+  logger.info("iniciando nicole");
+
+  await startWhatsApp({
+    // Por ahora solo logueamos lo que llega. El motor de macros entra en la
+    // siguiente parte.
+    onMessage: (msg) => {
+      logger.info(
+        { chat: msg.chatId, from: msg.senderName ?? msg.sender, type: msg.type },
+        msg.text || `[${msg.type}]`,
+      );
+    },
+  });
+}
+
+main().catch((err) => {
+  logger.error(err, "fallo al iniciar nicole");
+  process.exit(1);
+});
