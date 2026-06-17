@@ -2,6 +2,7 @@ import type { Logger } from "pino";
 import type { LLMMessage, LLMProvider } from "../llm/types.js";
 import type { IncomingMessage } from "../whatsapp/types.js";
 import type { MemoryEntry } from "./memory.js";
+import type { ChatState } from "./state.js";
 import type { Context, Messenger } from "./types.js";
 
 export interface ContextDeps {
@@ -10,12 +11,13 @@ export interface ContextDeps {
   logger: Logger;
   llm: LLMProvider | null;
   memory: MemoryEntry[];
+  state: ChatState;
 }
 
 // Arma el contexto que recibe una macro: ata los helpers (reply/send/react/ai/
 // propose/emit) al mensaje, al messenger y a la IA concretos.
 export function buildContext(deps: ContextDeps): Context {
-  const { message, messenger, logger, llm, memory } = deps;
+  const { message, messenger, logger, llm, memory, state } = deps;
 
   return {
     message,
@@ -23,6 +25,12 @@ export function buildContext(deps: ContextDeps): Context {
     logger,
     llm,
     memory,
+
+    // Estado scopeado al chat del mensaje actual.
+    state: {
+      get: <T>(key: string): T | undefined => state.get<T>(message.chatId, key),
+      set: (key, value) => state.set(message.chatId, key, value),
+    },
 
     reply: (txt) => messenger.sendText(message.chatId, txt),
     send: (chatId, txt) => messenger.sendText(chatId, txt),

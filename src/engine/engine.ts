@@ -3,11 +3,13 @@ import type { LLMProvider } from "../llm/types.js";
 import type { IncomingMessage } from "../whatsapp/types.js";
 import { buildContext } from "./context.js";
 import { type ChatMemory, entryFromMessage } from "./memory.js";
+import { type ChatState, createInMemoryState } from "./state.js";
 import type { Macro, Messenger } from "./types.js";
 
 export interface MacroEngineOptions {
   llm?: LLMProvider | null;
   memory?: ChatMemory;
+  state?: ChatState;
 }
 
 // El motor de macros: mantiene un registro ordenado por prioridad y enruta cada
@@ -16,6 +18,7 @@ export class MacroEngine {
   private readonly macros: Macro[] = [];
   private readonly llm: LLMProvider | null;
   private readonly memory: ChatMemory | null;
+  private readonly state: ChatState;
 
   constructor(
     private readonly logger: Logger,
@@ -23,6 +26,7 @@ export class MacroEngine {
   ) {
     this.llm = opts.llm ?? null;
     this.memory = opts.memory ?? null;
+    this.state = opts.state ?? createInMemoryState();
   }
 
   register(macro: Macro): this {
@@ -58,6 +62,7 @@ export class MacroEngine {
       logger: this.logger,
       llm: this.llm,
       memory: this.memory ? this.memory.get(message.chatId) : [],
+      state: this.state,
     });
 
     for (const macro of this.macros) {

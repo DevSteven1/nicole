@@ -18,6 +18,12 @@ export interface AiOptions {
   maxTokens?: number;
 }
 
+// Estado por chat, ya scopeado al chat del mensaje actual.
+export interface ChatStateScope {
+  get<T>(key: string): T | undefined;
+  set(key: string, value: unknown): void;
+}
+
 // Caja de herramientas que recibe cada macro al ejecutarse.
 export interface Context {
   message: IncomingMessage;
@@ -39,6 +45,9 @@ export interface Context {
 
   // Historial reciente del chat (incluye el mensaje actual).
   memory: MemoryEntry[];
+
+  // Estado por chat (clave-valor) para recordar entre mensajes.
+  state: ChatStateScope;
 
   // Propone un mensaje de respuesta: lo registra, NO lo envia. Es la accion
   // segura en read-only.
