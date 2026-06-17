@@ -59,7 +59,7 @@ En construccion, por partes. Cada parte es un commit atomico:
 - [x] Scaffold del proyecto (TypeScript + pnpm)
 - [x] Documentacion y convenciones
 - [x] Conexion a WhatsApp (Baileys)
-- [ ] Motor de macros
+- [x] Motor de macros
 - [ ] Abstraccion de IA (`LLMProvider`) y primer adapter
 - [ ] Primeras macros de ejemplo
 
