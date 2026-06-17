@@ -4,6 +4,7 @@ import makeWASocket, {
   useMultiFileAuthState,
 } from "@whiskeysockets/baileys";
 import qrcode from "qrcode-terminal";
+import type { Messenger } from "../engine/types.js";
 import { logger } from "../logger.js";
 import { normalize } from "./normalize.js";
 import type { IncomingMessage } from "./types.js";
@@ -11,8 +12,9 @@ import type { IncomingMessage } from "./types.js";
 export interface WhatsAppClientOptions {
   // Carpeta donde se persiste la sesion (credenciales). Ignorada por git.
   authDir?: string;
-  // Se invoca por cada mensaje entrante ya normalizado.
-  onMessage?: (msg: IncomingMessage) => void | Promise<void>;
+  // Se invoca por cada mensaje entrante ya normalizado. Recibe tambien el
+  // messenger para poder responder.
+  onMessage?: (msg: IncomingMessage, messenger: Messenger) => void | Promise<void>;
 }
 
 // Baileys envuelve los errores de conexion en objetos tipo Boom. Leemos el
@@ -41,6 +43,18 @@ export async function startWhatsApp(
     auth: state,
     logger: baileysLogger as never,
   });
+
+  // Implementacion concreta del contrato Messenger sobre Baileys.
+  const messenger: Messenger = {
+    sendText: async (chatId, text) => {
+      await sock.sendMessage(chatId, { text });
+    },
+    react: async (message, emoji) => {
+      await sock.sendMessage(message.chatId, {
+        react: { text: emoji, key: message.raw.key },
+      });
+    },
+  };
 
   sock.ev.on("creds.update", saveCreds);
 
@@ -77,7 +91,7 @@ export async function startWhatsApp(
       const msg = normalize(raw);
       // Ignoramos los propios para no entrar en bucles al responder.
       if (!msg || msg.fromMe) continue;
-      await opts.onMessage?.(msg);
+      await opts.onMessage?.(msg, messenger);
     }
   });
 }

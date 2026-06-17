@@ -61,7 +61,7 @@ En construccion, por partes. Cada parte es un commit atomico:
 - [x] Conexion a WhatsApp (Baileys)
 - [x] Motor de macros
 - [ ] Abstraccion de IA (`LLMProvider`) y primer adapter
-- [ ] Primeras macros de ejemplo
+- [x] Primeras macros de ejemplo e integracion motor <-> WhatsApp
 
 ## Convenciones
 
