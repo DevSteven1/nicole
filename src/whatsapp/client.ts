@@ -6,12 +6,18 @@ import makeWASocket, {
 import qrcode from "qrcode-terminal";
 import type { Messenger } from "../engine/types.js";
 import { logger } from "../logger.js";
+import {
+  createBaileysMessenger,
+  createReadOnlyMessenger,
+} from "./messenger.js";
 import { normalize } from "./normalize.js";
 import type { IncomingMessage } from "./types.js";
 
 export interface WhatsAppClientOptions {
   // Carpeta donde se persiste la sesion (credenciales). Ignorada por git.
   authDir?: string;
+  // Modo seguro: si es true (default), nicole no envia nada a WhatsApp.
+  readOnly?: boolean;
   // Se invoca por cada mensaje entrante ya normalizado. Recibe tambien el
   // messenger para poder responder.
   onMessage?: (msg: IncomingMessage, messenger: Messenger) => void | Promise<void>;
@@ -44,17 +50,12 @@ export async function startWhatsApp(
     logger: baileysLogger as never,
   });
 
-  // Implementacion concreta del contrato Messenger sobre Baileys.
-  const messenger: Messenger = {
-    sendText: async (chatId, text) => {
-      await sock.sendMessage(chatId, { text });
-    },
-    react: async (message, emoji) => {
-      await sock.sendMessage(message.chatId, {
-        react: { text: emoji, key: message.raw.key },
-      });
-    },
-  };
+  // En read-only (default) el messenger no envia nada: solo registra la
+  // intencion. Asi el modo seguro no depende de que cada macro se porte bien.
+  const readOnly = opts.readOnly ?? true;
+  const messenger: Messenger = readOnly
+    ? createReadOnlyMessenger(logger)
+    : createBaileysMessenger(sock);
 
   sock.ev.on("creds.update", saveCreds);
 

@@ -11,6 +11,10 @@ WhatsApp es directa via Baileys, sin navegador.
 > Aviso: usa un numero secundario. Cualquier conexion no oficial a WhatsApp
 > tiene riesgo de bloqueo de la cuenta.
 
+> Modo seguro: por defecto nicole arranca en **read-only**: observa e ingiere
+> mensajes pero NO envia nada. Para habilitar el envio hay que poner
+> explicitamente `READ_ONLY=false`.
+
 ## Stack
 
 - TypeScript (ESM, estricto) sobre Node.js >= 20, con pnpm.
@@ -30,6 +34,13 @@ pnpm start        # correr el build
 pnpm typecheck    # chequeo de tipos sin emitir
 pnpm test         # correr las pruebas
 ```
+
+### Configuracion (variables de entorno)
+
+- `READ_ONLY` (default `true`): en `true` nicole no envia nada. Poner `false`
+  para habilitar respuestas.
+- `AUTH_DIR` (default `auth_state`): carpeta de la sesion de WhatsApp.
+- `LOG_LEVEL` (default `info`) y `BAILEYS_LOG_LEVEL` (default `warn`).
 
 ## Arquitectura
 
