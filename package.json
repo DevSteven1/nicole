@@ -1,0 +1,31 @@
+{
+  "name": "nicole",
+  "version": "0.0.0",
+  "description": "Asistente de WhatsApp con motor de macros e IA sobre Baileys",
+  "type": "module",
+  "bin": {
+    "nicole": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "MIT",
+  "packageManager": "pnpm@11.3.0",
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}
