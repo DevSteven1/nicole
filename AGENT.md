@@ -14,6 +14,12 @@ soporte para llamadas, estados ni el resto de funciones de un cliente completo.
 La idea es quedarse con lo util para automatizar y dejar lugar para meter IA en
 profundidad.
 
+Caso de uso concreto: corre en DMs y grupos de soporte de clientes. La IA
+sostiene el contexto del chat, interpreta pedidos (muchas veces vagos) y, cuando
+un pedido esta claro, propone un ticket. nicole NO crea el ticket: emite la
+intencion y otro agente la procesa (desacoplados). Las respuestas automaticas
+son una fase posterior.
+
 El stack es TypeScript (ESM, modo estricto) sobre Node.js >= 20, con pnpm como
 gestor. La conexion a WhatsApp es directa via Baileys (WebSocket, sin navegador).
 No introduzcas dependencias ni un cambio de estructura grande sin preguntar antes.
@@ -117,16 +123,35 @@ WhatsApp (conexion)  ->  Motor de macros  ->  Acciones + IA
    recibe mensaje         decide que hacer      responde / dispara
 ```
 
-Estructura prevista de `src/` (se completa por partes; no todo existe aun):
+Estructura de `src/`:
 
-- `src/index.ts`: punto de entrada. Arranca la conexion y el motor.
-- `src/whatsapp/`: cliente Baileys (conexion, QR, reconexion, sesion) y la
-  normalizacion del mensaje crudo a un tipo propio del dominio.
-- `src/engine/`: el motor de macros. Define la interfaz `Macro`
-  (`match` + `run`), el `Context` que reciben las macros y el registro que las
-  evalua. Es el corazon del proyecto.
-- `src/llm/`: la abstraccion `LLMProvider` y sus adapters por proveedor.
-- `src/rules/`: las macros concretas. Cada una se registra sola.
+- `src/index.ts`: punto de entrada. Lee config, arma el motor (con IA, memoria y
+  estado) y arranca la conexion.
+- `src/config.ts`: configuracion por entorno (carga `.env` nativo). Incluye
+  `readOnly` (modo seguro) y la config de la IA.
+- `src/logger.ts`: logger pino (pretty en desarrollo).
+- `src/whatsapp/`: cliente Baileys (`client.ts`: conexion, QR, reconexion),
+  `messenger.ts` (implementacion real + la de read-only), `normalize.ts` (mensaje
+  crudo -> `IncomingMessage`) y `types.ts`.
+- `src/engine/`: el motor de macros. `types.ts` (`Macro`, `Matcher`, `Context`,
+  `Messenger`), `engine.ts` (registro y dispatch por prioridad), `matchers.ts`
+  (matchers componibles), `context.ts` (arma el `Context`), `memory.ts` (historial
+  por chat) y `state.ts` (estado clave-valor por chat). Es el corazon.
+- `src/llm/`: la abstraccion `LLMProvider` y sus adapters (`adapters/opencode.ts`).
+- `src/rules/`: las macros concretas (`log`, `ping`, `triage`). Se listan en
+  `rules/index.ts`.
+
+### Conceptos clave (no romper)
+
+- Read-only: por defecto nicole NO envia nada. El choke point es el `Messenger`:
+  en read-only se usa una implementacion que loguea la intencion en vez de
+  enviar. No saltear ese control desde las macros.
+- La IA es intercambiable: todo pasa por `LLMProvider`. Nunca importar el SDK de
+  un proveedor fuera de `src/llm/adapters/`.
+- Acciones de una macro via `Context`: `reply`/`send`/`react` (envian, bloqueado
+  en read-only), `ai` (razonar), `propose` (proponer respuesta sin enviar),
+  `emit` (handoff: emitir una intencion estructurada para otro agente), `memory`
+  (historial del chat) y `state` (estado por chat).
 
 Como ejecutar: ver [README.md](README.md) (`pnpm dev`, `pnpm build`,
-`pnpm test`).
+`pnpm test`). Pendientes en [TODO.md](TODO.md).

@@ -66,9 +66,23 @@ interface Macro {
 }
 ```
 
-Cada macro recibe un contexto con herramientas (`reply`, `send`, `react`, acceso
-a la IA, estado por chat) y se registra sola. Agregar un comportamiento nuevo es
-escribir una macro nueva.
+Cada macro recibe un `Context` con herramientas y se registra sola. Agregar un
+comportamiento nuevo es escribir una macro nueva. Lo que ofrece el contexto:
+
+- `reply` / `send` / `react`: envian (bloqueado en read-only).
+- `ai`: razonar con la IA (via `LLMProvider`).
+- `propose`: proponer una respuesta sin enviarla (seguro en read-only).
+- `emit`: emitir una intencion estructurada para otro agente (handoff desacoplado).
+- `memory`: historial reciente del chat.
+- `state`: estado clave-valor por chat (para recordar entre mensajes).
+
+### Macros actuales
+
+- `log`: observador, registra todo mensaje entrante (no corta la cadena).
+- `ping`: responde `pong` a `ping` / `!ping` (canario de extremo a extremo).
+- `triage`: lee la conversacion de soporte y, si hay un pedido claro, emite un
+  ticket propuesto (`ticket.propuesto`); si es vago, propone que falta preguntar.
+  No re-propone tickets ya abiertos en el chat (dedup por estado).
 
 ## Estado
 
@@ -88,6 +102,12 @@ Fase de soporte (en curso):
 - [x] Dedup: no re-proponer un ticket ya emitido en el mismo chat
 - [ ] Handoff real: emitir la intencion al agente que crea el ticket
 - [ ] Respuestas automaticas (fase avanzada)
+
+## Pendientes
+
+El trabajo que falta esta en [TODO.md](TODO.md) (handoff real del emit,
+persistencia, ciclo de vida de tickets, control de costo, respuestas automaticas,
+y mas).
 
 ## Convenciones
 
