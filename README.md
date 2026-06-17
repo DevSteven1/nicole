@@ -85,7 +85,7 @@ Fase de soporte (en curso):
 
 - [x] Memoria por chat + IA en el contexto (`ai` / `propose` / `emit`)
 - [x] Macro de triage: propone tickets a partir de pedidos de soporte
-- [ ] Dedup: no re-proponer un ticket ya emitido en el mismo chat
+- [x] Dedup: no re-proponer un ticket ya emitido en el mismo chat
 - [ ] Handoff real: emitir la intencion al agente que crea el ticket
 - [ ] Respuestas automaticas (fase avanzada)
 
