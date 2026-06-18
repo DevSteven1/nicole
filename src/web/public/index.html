@@ -51,11 +51,35 @@
 
       <aside class="side">
         <nav class="tabs" id="tabs">
-          <button class="tab is-on" data-tab="macros">macros</button>
+          <button class="tab is-on" data-tab="crear">crear</button>
+          <button class="tab" data-tab="macros">macros</button>
           <button class="tab" data-tab="chats">chats</button>
         </nav>
 
-        <div class="pane is-on" data-pane="macros">
+        <div class="pane is-on" data-pane="crear">
+          <div class="chat" id="chat-log">
+            <div class="bubble bubble--ai">
+              <p class="bubble__text">Describime que macro queres y te la armo en el lenguaje de nicole. Por ejemplo: "cuando alguien diga factura, clasifica el pedido y si esta claro proponé un ticket".</p>
+            </div>
+          </div>
+          <form
+            id="authoring-form"
+            class="chat-input"
+            hx-post="/api/authoring"
+            hx-target="#chat-log"
+            hx-swap="beforeend"
+          >
+            <input
+              name="message"
+              placeholder="Describi la macro que queres..."
+              autocomplete="off"
+              required
+            />
+            <button class="btn btn--primary" type="submit">enviar</button>
+          </form>
+        </div>
+
+        <div class="pane" data-pane="macros">
           <div
             id="macros-panel"
             hx-get="/api/macros"

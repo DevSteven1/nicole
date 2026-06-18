@@ -103,6 +103,43 @@ function builtinRow(name: string): string {
     </li>`;
 }
 
+export interface AuthoringTurn {
+  name: string;
+  source: string;
+  explanation: string;
+  valid: boolean;
+  error?: string;
+}
+
+// Burbuja de respuesta de la IA en el chat de autoria: explicacion + el codigo
+// propuesto y, si compila, un boton para crearla (vos aprobas).
+export function renderAuthoringTurn(turn: AuthoringTurn): string {
+  const code = turn.source
+    ? `<pre class="macro__code">${escapeHtml(turn.source)}</pre>`
+    : "";
+
+  const action = turn.valid
+    ? `<form class="bubble__act" hx-post="/api/macros" hx-target="#macros-panel"
+        hx-swap="innerHTML" hx-on::after-request="nicoleShowMacros()">
+        <input type="hidden" name="name" value="${escapeHtml(turn.name)}">
+        <input type="hidden" name="priority" value="0">
+        <input type="hidden" name="stop" value="on">
+        <input type="hidden" name="source" value="${escapeHtml(turn.source)}">
+        <span class="bubble__name">${escapeHtml(turn.name)}</span>
+        <button class="btn btn--primary" type="submit">crear esta macro</button>
+      </form>`
+    : `<p class="bubble__err">No pude generar una macro valida: ${escapeHtml(
+        turn.error ?? "error",
+      )}. Proba reformular el pedido.</p>`;
+
+  return `
+    <div class="bubble bubble--ai">
+      <p class="bubble__text">${escapeHtml(turn.explanation)}</p>
+      ${code}
+      ${action}
+    </div>`;
+}
+
 export function renderMacrosPanel(
   store: MacroStore,
   builtins: string[],

@@ -15,7 +15,10 @@ import {
   type MacroStore,
 } from "../engine/macro-store.js";
 import type { EventHub } from "../events.js";
-import { renderMacrosPanel } from "./views.js";
+import type { LLMProvider } from "../llm/types.js";
+import { MacroLangError, compile } from "../macro-lang/index.js";
+import { buildAuthoringMessages, parseProposal } from "./authoring.js";
+import { renderAuthoringTurn, renderMacrosPanel } from "./views.js";
 
 // Estado del sistema que la consola muestra. index.ts lo mantiene al dia (la
 // conexion de WhatsApp lo va actualizando).
@@ -32,6 +35,8 @@ export interface WebServerOptions {
   store: MacroStore;
   logger: Logger;
   getStatus: () => WebStatus;
+  // Proveedor de IA para el chat de autoria de macros (null si no hay).
+  llm: LLMProvider | null;
   host?: string;
   port?: number;
 }
@@ -52,7 +57,7 @@ function contentTypeFor(path: string): string {
 
 // Arranca la consola web embebida. Devuelve el server por si hace falta cerrarlo.
 export function startWebServer(opts: WebServerOptions): Server {
-  const { hub, store, logger, getStatus } = opts;
+  const { hub, store, logger, getStatus, llm } = opts;
   const host = opts.host ?? "127.0.0.1";
   const port = opts.port ?? 4321;
 
@@ -119,6 +124,13 @@ export function startWebServer(opts: WebServerOptions): Server {
         }
       }
 
+      if (req.method === "POST" && pathname === "/api/authoring") {
+        const form = await readForm(req);
+        const message = (form.get("message") ?? "").trim();
+        if (!message) return html(res, 200, "");
+        return html(res, 200, await authorMacro(message, llm, logger));
+      }
+
       // Estaticos.
       const file = pathname === "/" ? "index.html" : pathname.slice(1);
       return serveStatic(res, file, logger);
@@ -181,6 +193,51 @@ function matchId(pathname: string, prefix: string, suffix: string): string | nul
   if (!pathname.startsWith(prefix) || !pathname.endsWith(suffix)) return null;
   const id = pathname.slice(prefix.length, pathname.length - suffix.length);
   return id.length > 0 && !id.includes("/") ? id : null;
+}
+
+// Pide a la IA una macro a partir del texto del usuario, la valida compilandola
+// y devuelve la burbuja del chat (con boton de crear si compila).
+async function authorMacro(
+  message: string,
+  llm: LLMProvider | null,
+  logger: Logger,
+): Promise<string> {
+  if (!llm) {
+    return renderAuthoringTurn({
+      name: "",
+      source: "",
+      explanation: "La IA no esta configurada (falta API key).",
+      valid: false,
+      error: "sin IA",
+    });
+  }
+
+  let aiText: string;
+  try {
+    const res = await llm.complete({ messages: buildAuthoringMessages(message) });
+    aiText = res.text;
+  } catch (err) {
+    logger.error({ err }, "autoria: fallo la consulta a la IA");
+    return renderAuthoringTurn({
+      name: "",
+      source: "",
+      explanation: "Fallo la consulta a la IA.",
+      valid: false,
+      error: "error de la IA",
+    });
+  }
+
+  const proposal = parseProposal(aiText);
+  let valid = true;
+  let error: string | undefined;
+  try {
+    compile(proposal.source);
+  } catch (err) {
+    valid = false;
+    error = err instanceof MacroLangError ? err.message : "no compila";
+  }
+
+  return renderAuthoringTurn({ ...proposal, valid, error });
 }
 
 // Id directo (sin sufijo) en /api/macros/<id>, para el update.

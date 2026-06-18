@@ -196,6 +196,33 @@ document.getElementById("tabs").addEventListener("click", (e) => {
   document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("is-on", p.dataset.pane === name));
 });
 
+// ---------- chat de autoria ----------
+const chatLog = document.getElementById("chat-log");
+const authoringForm = document.getElementById("authoring-form");
+
+if (authoringForm && chatLog) {
+  const input = authoringForm.querySelector('input[name="message"]');
+  authoringForm.addEventListener("htmx:beforeRequest", () => {
+    const txt = input.value.trim();
+    if (!txt) return;
+    const bubble = el("div", "bubble bubble--user");
+    bubble.appendChild(el("p", "bubble__text", txt));
+    chatLog.appendChild(bubble);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  });
+  authoringForm.addEventListener("htmx:afterRequest", () => {
+    input.value = "";
+  });
+  chatLog.addEventListener("htmx:afterSwap", () => {
+    chatLog.scrollTop = chatLog.scrollHeight;
+  });
+}
+
+// Lo usa el boton "crear esta macro" de una propuesta para saltar al inspector.
+window.nicoleShowMacros = () => {
+  document.querySelector('.tab[data-tab="macros"]')?.click();
+};
+
 function connect() {
   const es = new EventSource("/api/stream");
   let primed = false;

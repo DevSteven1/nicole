@@ -94,6 +94,7 @@ async function main(): Promise<void> {
       store: macroStore,
       logger,
       getStatus: () => status,
+      llm,
       host: config.web.host,
       port: config.web.port,
     });
