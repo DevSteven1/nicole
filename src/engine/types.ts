@@ -11,6 +11,22 @@ export interface Messenger {
   react(message: IncomingMessage, emoji: string): Promise<void>;
 }
 
+// Sobre del handoff: la intencion estructurada que nicole emite para que otro
+// agente la procese. nicole arma esto; el consumidor decide que hacer. Estan
+// desacoplados a proposito.
+export interface HandoffIntent {
+  kind: string;
+  data: unknown;
+  chatId: string;
+}
+
+// Abstraccion de salida del handoff (analoga a Messenger): adonde viaja la
+// intencion emitida con ctx.emit. La implementacion concreta (log o webhook) se
+// inyecta. El default seguro solo loguea, igual que el messenger read-only.
+export interface HandoffSink {
+  emit(intent: HandoffIntent): Promise<void>;
+}
+
 // Opciones para una llamada a la IA desde una macro.
 export interface AiOptions {
   model?: string;
