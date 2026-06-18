@@ -21,6 +21,9 @@ export interface WhatsAppClientOptions {
   // Se invoca por cada mensaje entrante ya normalizado. Recibe tambien el
   // messenger para poder responder.
   onMessage?: (msg: IncomingMessage, messenger: Messenger) => void | Promise<void>;
+  // Notifica cambios de estado de la conexion (para la consola web). Valores:
+  // "qr", "abierta", "cerrada".
+  onStatus?: (status: string) => void;
 }
 
 // Baileys envuelve los errores de conexion en objetos tipo Boom. Leemos el
@@ -65,13 +68,16 @@ export async function startWhatsApp(
     if (qr) {
       logger.info("escanea el codigo QR para vincular el numero");
       qrcode.generate(qr, { small: true });
+      opts.onStatus?.("qr");
     }
 
     if (connection === "open") {
       logger.info("conexion abierta, nicole esta en linea");
+      opts.onStatus?.("abierta");
     }
 
     if (connection === "close") {
+      opts.onStatus?.("cerrada");
       const code = statusCode(lastDisconnect?.error);
       const loggedOut = code === DisconnectReason.loggedOut;
       if (loggedOut) {

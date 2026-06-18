@@ -1,9 +1,10 @@
 import type { Logger } from "pino";
+import type { EventHub } from "../events.js";
 import type { LLMMessage, LLMProvider } from "../llm/types.js";
 import type { IncomingMessage } from "../whatsapp/types.js";
 import type { MemoryEntry } from "./memory.js";
 import type { ChatState } from "./state.js";
-import type { Context, Messenger } from "./types.js";
+import type { Context, HandoffSink, Messenger } from "./types.js";
 
 export interface ContextDeps {
   message: IncomingMessage;
@@ -12,12 +13,17 @@ export interface ContextDeps {
   llm: LLMProvider | null;
   memory: MemoryEntry[];
   state: ChatState;
+  handoff: HandoffSink;
+  events: EventHub;
 }
 
 // Arma el contexto que recibe una macro: ata los helpers (reply/send/react/ai/
-// propose/emit) al mensaje, al messenger y a la IA concretos.
+// propose/emit) al mensaje, al messenger y a la IA concretos. De paso publica
+// cada accion en el bus de eventos para la consola en vivo (solo observabilidad).
 export function buildContext(deps: ContextDeps): Context {
-  const { message, messenger, logger, llm, memory, state } = deps;
+  const { message, messenger, logger, llm, memory, state, handoff, events } =
+    deps;
+  const { chatId, sender, senderName } = message;
 
   return {
     message,
@@ -32,9 +38,18 @@ export function buildContext(deps: ContextDeps): Context {
       set: (key, value) => state.set(message.chatId, key, value),
     },
 
-    reply: (txt) => messenger.sendText(message.chatId, txt),
-    send: (chatId, txt) => messenger.sendText(chatId, txt),
-    react: (emoji) => messenger.react(message, emoji),
+    reply: async (txt) => {
+      events.publish({ type: "send", chatId, text: txt });
+      await messenger.sendText(chatId, txt);
+    },
+    send: async (toChatId, txt) => {
+      events.publish({ type: "send", chatId: toChatId, text: txt });
+      await messenger.sendText(toChatId, txt);
+    },
+    react: async (emoji) => {
+      events.publish({ type: "react", chatId, emoji });
+      await messenger.react(message, emoji);
+    },
 
     ai: async (input, opts) => {
       if (!llm) throw new Error("IA no configurada");
@@ -45,14 +60,13 @@ export function buildContext(deps: ContextDeps): Context {
     },
 
     propose: async (txt) => {
-      logger.info(
-        { chatId: message.chatId, text: txt },
-        "[propuesta de respuesta]",
-      );
+      events.publish({ type: "propose", chatId, sender, senderName, text: txt });
+      logger.info({ chatId, text: txt }, "[propuesta de respuesta]");
     },
 
     emit: async (kind, data) => {
-      logger.info({ chatId: message.chatId, kind, data }, "[emit intent]");
+      events.publish({ type: "emit", chatId, kind, data });
+      await handoff.emit({ kind, data, chatId });
     },
   };
 }

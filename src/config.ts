@@ -9,6 +9,13 @@ function envBool(name: string, def: boolean): boolean {
   return v === "true" || v === "1";
 }
 
+function envNum(name: string, def: number): number {
+  const v = process.env[name];
+  if (v === undefined) return def;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+}
+
 export const config = {
   // Modo seguro. Si es true, nicole observa e ingiere mensajes pero NO envia
   // nada a WhatsApp. Por seguridad arranca activado: hay que poner explicitamente
@@ -25,5 +32,23 @@ export const config = {
     apiKey: process.env.OPENCODE_API_KEY ?? "",
     baseUrl: process.env.OPENCODE_BASE_URL ?? "https://opencode.ai/zen/go/v1",
     model: process.env.OPENCODE_MODEL ?? "deepseek-v4-flash",
+  },
+
+  // Handoff: adonde viaja la intencion emitida con ctx.emit. Por defecto solo
+  // loguea (igual que read-only). Para mandarla de verdad hay que poner
+  // EMIT_ENABLED=true y un EMIT_WEBHOOK_URL (un webhook generico, no atado a n8n).
+  handoff: {
+    enabled: envBool("EMIT_ENABLED", false),
+    webhookUrl: process.env.EMIT_WEBHOOK_URL ?? "",
+    timeoutMs: envNum("EMIT_TIMEOUT_MS", 10_000),
+    retries: envNum("EMIT_RETRIES", 2),
+  },
+
+  // Consola web: dashboard de observacion en vivo y editor de macros. Por
+  // defecto escucha solo en localhost. Apagala con WEB_ENABLED=false.
+  web: {
+    enabled: envBool("WEB_ENABLED", true),
+    host: process.env.WEB_HOST ?? "127.0.0.1",
+    port: envNum("WEB_PORT", 4321),
   },
 };
