@@ -137,14 +137,19 @@ Estructura de `src/`:
   `Messenger`, `HandoffSink`), `engine.ts` (registro y dispatch por prioridad;
   tambien registra/reemplaza las macros dinamicas), `matchers.ts` (matchers
   componibles), `context.ts` (arma el `Context`), `memory.ts` (historial por chat),
-  `state.ts` (estado clave-valor por chat) y `macro-store.ts` (macros declarativas
-  creadas desde la consola: matcher + accion, se compilan a `Macro` en runtime).
-  Es el corazon.
+  `state.ts` (estado clave-valor por chat) y `macro-store.ts` (macros creadas desde
+  la consola: se guardan como codigo del lenguaje de macros y se compilan a `Macro`
+  en caliente). Es el corazon.
+- `src/macro-lang/`: el lenguaje de macros (DSL). `tokenizer.ts`, `parser.ts`
+  (AST en `ast.ts`) e `interpreter.ts` (compila el `when` a `Matcher` y corre el
+  cuerpo contra el `Context`). `compile(source)` devuelve `{ match, run }`. No
+  ejecuta codigo: el set de operaciones es cerrado.
 - `src/events.ts`: bus de eventos en memoria (`EventHub`) para la consola en vivo.
   El motor y el contexto publican aca; es solo observabilidad (si nadie escucha,
   no cuesta nada). No reemplaza al logger ni al choke point de read-only.
 - `src/web/`: la consola web embebida (htmx + SSE, sin build). `server.ts` (http
-  nativo: estaticos, stream SSE, CRUD de macros), `views.ts` (fragmentos htmx) y
+  nativo: estaticos, stream SSE, CRUD de macros, chat de autoria), `views.ts`
+  (fragmentos htmx), `authoring.ts` (prompt de la IA + parseo de la propuesta) y
   `public/` (la UI: HTML/CSS/JS + `vendor/htmx.min.js`).
 - `src/llm/`: la abstraccion `LLMProvider` y sus adapters (`adapters/opencode.ts`).
 - `src/handoff/`: el sink del handoff (`sink.ts`): `createLoggingSink` (default,

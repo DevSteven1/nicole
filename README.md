@@ -103,11 +103,36 @@ crear macros. Por defecto en `http://127.0.0.1:4321` (se apaga con
 - Cinta de eventos en vivo, codificada por color: mensajes entrantes, propuestas
   (`propose`), intenciones emitidas (`emit`), envios y estado del sistema.
 - Vista por chat con los tickets que nicole fue proponiendo.
-- Editor de macros: crea reglas declarativas (matcher + accion) que el motor
-  aplica en caliente, sin reiniciar. Las macros base (codigo) se listan como
-  solo lectura.
+- Chat de autoria: describis en lenguaje natural la macro que queres y la IA la
+  arma en el lenguaje de macros; vos la revisas y, si te sirve, la creas (la IA
+  propone, vos aprobas).
+- Inspector de macros: ves/editas el codigo de cada macro y la activas, desactivas
+  o eliminas. El motor las aplica en caliente, sin reiniciar. Las macros base
+  (codigo) se listan como solo lectura.
 
 Es solo observabilidad y configuracion: no saltea el read-only ni el handoff.
+
+## Lenguaje de macros
+
+Las macros que se crean desde la consola se escriben en un DSL propio (texto que
+nicole parsea e interpreta; no se ejecuta codigo arbitrario). Un ejemplo:
+
+```
+on message when text contains "factura":
+  ask ai json "clasifica este pedido: {{text}}" -> r
+  if r.claro:
+    emit "ticket.propuesto"
+  else:
+    propose "Falta info: {{r.faltaInfo}}"
+```
+
+- Cabecera `on message when <condicion>:` (el `when` es opcional y solo mira el
+  texto del mensaje).
+- Cuerpo indentado con pasos: `propose` / `reply` / `react` / `emit`,
+  `ask ai [json] "..." -> var`, `set "clave" = <expr>`, `if/else`, `stop`.
+- Expresiones en los `if` con variables de la IA (`r.claro`), `state "clave"`,
+  comparadores y `and`/`or`/`not`; plantillas `{{text}}`, `{{senderName}}`,
+  `{{var.campo}}`.
 
 ## Estado
 
@@ -127,6 +152,7 @@ Fase de soporte (en curso):
 - [x] Dedup: no re-proponer un ticket ya emitido en el mismo chat
 - [x] Handoff real: emitir la intencion a un webhook (detras de `EMIT_ENABLED`)
 - [x] Consola web: observacion en vivo y editor de macros
+- [x] Lenguaje de macros (DSL) + chat de autoria con IA
 - [ ] Respuestas automaticas (fase avanzada)
 
 ## Pendientes
