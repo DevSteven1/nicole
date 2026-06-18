@@ -1,0 +1,207 @@
+import { readFile } from "node:fs/promises";
+import {
+  createServer,
+  type IncomingMessage as HttpRequest,
+  type Server,
+  type ServerResponse,
+} from "node:http";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Logger } from "pino";
+import {
+  MacroDefError,
+  type MacroDefInput,
+  type MacroStore,
+} from "../engine/macro-store.js";
+import type { EventHub } from "../events.js";
+import { renderMacrosPanel } from "./views.js";
+
+// Estado del sistema que la consola muestra. index.ts lo mantiene al dia (la
+// conexion de WhatsApp lo va actualizando).
+export interface WebStatus {
+  readOnly: boolean;
+  provider: string | null;
+  handoff: "log" | "webhook";
+  connection: string;
+  builtins: string[];
+}
+
+export interface WebServerOptions {
+  hub: EventHub;
+  store: MacroStore;
+  logger: Logger;
+  getStatus: () => WebStatus;
+  host?: string;
+  port?: number;
+}
+
+const PUBLIC_DIR = fileURLToPath(new URL("./public/", import.meta.url));
+
+const CONTENT_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".svg": "image/svg+xml",
+};
+
+function contentTypeFor(path: string): string {
+  const dot = path.lastIndexOf(".");
+  return CONTENT_TYPES[path.slice(dot)] ?? "application/octet-stream";
+}
+
+// Arranca la consola web embebida. Devuelve el server por si hace falta cerrarlo.
+export function startWebServer(opts: WebServerOptions): Server {
+  const { hub, store, logger, getStatus } = opts;
+  const host = opts.host ?? "127.0.0.1";
+  const port = opts.port ?? 4321;
+
+  const macrosPanel = (error?: string) =>
+    renderMacrosPanel(store, getStatus().builtins, error);
+
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+    const { pathname } = url;
+
+    try {
+      if (req.method === "GET" && pathname === "/api/stream") {
+        return streamEvents(req, res, hub);
+      }
+      if (req.method === "GET" && pathname === "/api/status") {
+        return json(res, 200, getStatus());
+      }
+      if (req.method === "GET" && pathname === "/api/macros") {
+        return html(res, 200, macrosPanel());
+      }
+      if (req.method === "POST" && pathname === "/api/macros") {
+        const form = await readForm(req);
+        try {
+          store.create(formToDef(form));
+          return html(res, 200, macrosPanel());
+        } catch (err) {
+          if (err instanceof MacroDefError) {
+            return html(res, 200, macrosPanel(err.message));
+          }
+          throw err;
+        }
+      }
+      const toggle = matchId(pathname, "/api/macros/", "/toggle");
+      if (req.method === "POST" && toggle) {
+        const def = store.get(toggle);
+        if (def) store.update(toggle, { enabled: !def.enabled });
+        return html(res, 200, macrosPanel());
+      }
+      const del = matchId(pathname, "/api/macros/", "/delete");
+      if (req.method === "POST" && del) {
+        store.remove(del);
+        return html(res, 200, macrosPanel());
+      }
+
+      // Estaticos.
+      const file = pathname === "/" ? "index.html" : pathname.slice(1);
+      return serveStatic(res, file, logger);
+    } catch (err) {
+      logger.error({ err, pathname }, "web: error sirviendo request");
+      if (!res.headersSent) json(res, 500, { error: "error interno" });
+      else res.end();
+    }
+  });
+
+  server.listen(port, host, () => {
+    logger.info({ url: `http://${host}:${port}` }, "consola web escuchando");
+  });
+  return server;
+}
+
+// SSE: replay del buffer y luego eventos en vivo. Un ping periodico mantiene la
+// conexion despierta detras de proxies.
+function streamEvents(
+  req: HttpRequest,
+  res: ServerResponse,
+  hub: EventHub,
+): void {
+  res.writeHead(200, {
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache",
+    connection: "keep-alive",
+  });
+
+  const send = (data: unknown) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  for (const event of hub.recent()) send(event);
+
+  const off = hub.subscribe(send);
+  const ping = setInterval(() => res.write(": ping\n\n"), 25_000);
+
+  req.on("close", () => {
+    clearInterval(ping);
+    off();
+  });
+}
+
+async function serveStatic(
+  res: ServerResponse,
+  file: string,
+  logger: Logger,
+): Promise<void> {
+  // Evita salir del directorio publico.
+  if (file.includes("..")) return json(res, 403, { error: "prohibido" });
+  try {
+    const buf = await readFile(join(PUBLIC_DIR, file));
+    res.writeHead(200, { "content-type": contentTypeFor(file) });
+    res.end(buf);
+  } catch {
+    logger.debug({ file }, "web: estatico no encontrado");
+    json(res, 404, { error: "no encontrado" });
+  }
+}
+
+function matchId(pathname: string, prefix: string, suffix: string): string | null {
+  if (!pathname.startsWith(prefix) || !pathname.endsWith(suffix)) return null;
+  const id = pathname.slice(prefix.length, pathname.length - suffix.length);
+  return id.length > 0 && !id.includes("/") ? id : null;
+}
+
+// Traduce el form plano (campos urlencoded) a la definicion estructurada.
+function formToDef(form: URLSearchParams): MacroDefInput {
+  return {
+    name: form.get("name") ?? "",
+    priority: Number(form.get("priority") ?? 0),
+    stop: form.get("stop") !== null,
+    match: {
+      kind: (form.get("matchKind") ?? "always") as MacroDefInput["match"]["kind"],
+      value: form.get("matchValue") ?? "",
+      flags: form.get("matchFlags") ?? "",
+    },
+    action: {
+      kind: (form.get("actionKind") ?? "propose") as MacroDefInput["action"]["kind"],
+      text: form.get("actionText") ?? "",
+      emoji: form.get("actionEmoji") ?? "",
+      kindName: form.get("actionKindName") ?? "",
+    },
+  };
+}
+
+async function readForm(
+  req: HttpRequest,
+): Promise<URLSearchParams> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  return new URLSearchParams(Buffer.concat(chunks).toString("utf8"));
+}
+
+function json(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+): void {
+  res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify(body));
+}
+
+function html(
+  res: ServerResponse,
+  status: number,
+  body: string,
+): void {
+  res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
+  res.end(body);
+}

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nicole · consola</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/vendor/htmx.min.js" defer></script>
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="meter" id="meter" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <div class="brand__id">
+          <h1 class="brand__name">nicole</h1>
+          <p class="brand__sub">consola de observacion</p>
+        </div>
+      </div>
+      <div class="status" id="status">
+        <span class="chip" data-k="mode"><i></i><b>modo</b><em>--</em></span>
+        <span class="chip" data-k="conn"><i></i><b>conexion</b><em>--</em></span>
+        <span class="chip" data-k="ia"><i></i><b>ia</b><em>--</em></span>
+        <span class="chip" data-k="handoff"><i></i><b>handoff</b><em>--</em></span>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="tape" aria-label="Cinta de eventos en vivo">
+        <div class="tape__bar">
+          <span class="eyebrow">cinta en vivo</span>
+          <div class="filters" id="filters">
+            <button class="flt is-on" data-f="all">todo</button>
+            <button class="flt" data-f="message">msg</button>
+            <button class="flt" data-f="propose">propose</button>
+            <button class="flt" data-f="emit">emit</button>
+            <button class="flt" data-f="send">send</button>
+          </div>
+          <label class="follow">
+            <input type="checkbox" id="follow" checked /> seguir
+          </label>
+        </div>
+        <ol class="feed" id="feed" aria-live="polite"></ol>
+        <p class="feed__empty" id="feed-empty">
+          Esperando actividad. nicole escucha; lo que vea, propone o emita
+          aparece aca.
+        </p>
+      </section>
+
+      <aside class="side">
+        <nav class="tabs" id="tabs">
+          <button class="tab is-on" data-tab="macros">macros</button>
+          <button class="tab" data-tab="chats">chats</button>
+        </nav>
+
+        <div class="pane is-on" data-pane="macros">
+          <div
+            id="macros-panel"
+            hx-get="/api/macros"
+            hx-trigger="load"
+            hx-swap="innerHTML"
+          >
+            <p class="loading">cargando macros...</p>
+          </div>
+        </div>
+
+        <div class="pane" data-pane="chats">
+          <ul class="chats" id="chats"></ul>
+          <p class="empty" id="chats-empty">
+            Sin chats todavia. Cuando lleguen mensajes vas a ver aca cada chat y
+            los tickets que nicole propuso.
+          </p>
+        </div>
+      </aside>
+    </main>
+  </body>
+</html>
