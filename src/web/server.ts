@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Logger } from "pino";
 import {
+  type MacroDef,
   MacroDefError,
   type MacroDefInput,
   type MacroStore,
@@ -55,8 +56,8 @@ export function startWebServer(opts: WebServerOptions): Server {
   const host = opts.host ?? "127.0.0.1";
   const port = opts.port ?? 4321;
 
-  const macrosPanel = (error?: string) =>
-    renderMacrosPanel(store, getStatus().builtins, error);
+  const macrosPanel = (opts: Parameters<typeof renderMacrosPanel>[2] = {}) =>
+    renderMacrosPanel(store, getStatus().builtins, opts);
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
@@ -79,10 +80,15 @@ export function startWebServer(opts: WebServerOptions): Server {
           return html(res, 200, macrosPanel());
         } catch (err) {
           if (err instanceof MacroDefError) {
-            return html(res, 200, macrosPanel(err.message));
+            return html(res, 200, macrosPanel({ error: err.message }));
           }
           throw err;
         }
+      }
+      const editId = matchId(pathname, "/api/macros/", "/edit");
+      if (req.method === "GET" && editId) {
+        const def = store.get(editId);
+        return html(res, 200, macrosPanel(def ? { edit: def } : {}));
       }
       const toggle = matchId(pathname, "/api/macros/", "/toggle");
       if (req.method === "POST" && toggle) {
@@ -94,6 +100,23 @@ export function startWebServer(opts: WebServerOptions): Server {
       if (req.method === "POST" && del) {
         store.remove(del);
         return html(res, 200, macrosPanel());
+      }
+      const updateId = plainId(pathname);
+      if (req.method === "POST" && updateId) {
+        const form = await readForm(req);
+        try {
+          const updated = store.update(updateId, formToDef(form));
+          if (!updated) return html(res, 200, macrosPanel());
+          return html(res, 200, macrosPanel());
+        } catch (err) {
+          if (err instanceof MacroDefError) {
+            return html(res, 200, macrosPanel({
+              error: err.message,
+              edit: formToEditDef(updateId, form, store),
+            }));
+          }
+          throw err;
+        }
       }
 
       // Estaticos.
@@ -160,23 +183,38 @@ function matchId(pathname: string, prefix: string, suffix: string): string | nul
   return id.length > 0 && !id.includes("/") ? id : null;
 }
 
-// Traduce el form plano (campos urlencoded) a la definicion estructurada.
+// Id directo (sin sufijo) en /api/macros/<id>, para el update.
+function plainId(pathname: string): string | null {
+  const prefix = "/api/macros/";
+  if (!pathname.startsWith(prefix)) return null;
+  const id = pathname.slice(prefix.length);
+  return id.length > 0 && !id.includes("/") ? id : null;
+}
+
+// Traduce el form plano (campos urlencoded) a la definicion de macro.
 function formToDef(form: URLSearchParams): MacroDefInput {
   return {
     name: form.get("name") ?? "",
+    source: form.get("source") ?? "",
     priority: Number(form.get("priority") ?? 0),
     stop: form.get("stop") !== null,
-    match: {
-      kind: (form.get("matchKind") ?? "always") as MacroDefInput["match"]["kind"],
-      value: form.get("matchValue") ?? "",
-      flags: form.get("matchFlags") ?? "",
-    },
-    action: {
-      kind: (form.get("actionKind") ?? "propose") as MacroDefInput["action"]["kind"],
-      text: form.get("actionText") ?? "",
-      emoji: form.get("actionEmoji") ?? "",
-      kindName: form.get("actionKindName") ?? "",
-    },
+  };
+}
+
+// Reconstruye un MacroDef desde el form para re-pintar el editor cuando el
+// update falla la validacion (asi no se pierde lo que el usuario tipeo).
+function formToEditDef(
+  id: string,
+  form: URLSearchParams,
+  store: MacroStore,
+): MacroDef {
+  return {
+    id,
+    name: form.get("name") ?? "",
+    source: form.get("source") ?? "",
+    priority: Number(form.get("priority") ?? 0),
+    stop: form.get("stop") !== null,
+    enabled: store.get(id)?.enabled ?? true,
   };
 }
 

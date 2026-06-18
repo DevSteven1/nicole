@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Context } from "../src/engine/types.js";
 import {
   MacroDefError,
   compileMacro,
@@ -8,100 +7,33 @@ import {
   type MacroDef,
 } from "../src/engine/macro-store.js";
 
-function msg(text: string) {
-  return {
-    id: "1",
-    chatId: "c@s.whatsapp.net",
-    sender: "bob@s.whatsapp.net",
-    senderName: "Bob",
-    fromMe: false,
-    isGroup: false,
-    text,
-    type: "text" as const,
-    timestamp: 0,
-    raw: {} as never,
-  };
-}
-
-// ctx falso que captura las acciones que dispara la macro compilada.
-function fakeCtx(text: string) {
-  const calls: Array<{ fn: string; arg: unknown; arg2?: unknown }> = [];
-  const ctx = {
-    message: msg(text),
-    reply: async (t: string) => void calls.push({ fn: "reply", arg: t }),
-    propose: async (t: string) => void calls.push({ fn: "propose", arg: t }),
-    react: async (e: string) => void calls.push({ fn: "react", arg: e }),
-    emit: async (k: string, d: unknown) =>
-      void calls.push({ fn: "emit", arg: k, arg2: d }),
-  } as unknown as Context;
-  return { ctx, calls };
-}
+const SRC = 'on message when text contains "hola":\n  propose "hey"';
 
 describe("normalizeDef", () => {
   it("rellena defaults (enabled, priority, stop)", () => {
-    const def = normalizeDef({
-      name: "saludo",
-      match: { kind: "contains", value: "hola" },
-      action: { kind: "propose", text: "hey" },
-    });
+    const def = normalizeDef({ name: "saludo", source: SRC });
     expect(def).toMatchObject({ enabled: true, priority: 0, stop: true });
+    expect(def.source).toBe(SRC);
   });
 
   it("rechaza nombre vacio", () => {
-    expect(() =>
-      normalizeDef({
-        name: "  ",
-        match: { kind: "always" },
-        action: { kind: "propose", text: "x" },
-      }),
-    ).toThrow(MacroDefError);
+    expect(() => normalizeDef({ name: "  ", source: SRC })).toThrow(MacroDefError);
   });
 
   it('rechaza nombre con prefijo reservado "dyn:"', () => {
-    expect(() =>
-      normalizeDef({
-        name: "dyn:hack",
-        match: { kind: "always" },
-        action: { kind: "propose", text: "x" },
-      }),
-    ).toThrow(MacroDefError);
+    expect(() => normalizeDef({ name: "dyn:x", source: SRC })).toThrow(
+      MacroDefError,
+    );
   });
 
-  it("rechaza matcher sin valor cuando lo necesita", () => {
-    expect(() =>
-      normalizeDef({
-        name: "m",
-        match: { kind: "contains", value: "" },
-        action: { kind: "propose", text: "x" },
-      }),
-    ).toThrow(/valor/);
+  it("rechaza source vacio", () => {
+    expect(() => normalizeDef({ name: "x", source: "  " })).toThrow(/codigo/);
   });
 
-  it("rechaza regex invalida", () => {
-    expect(() =>
-      normalizeDef({
-        name: "m",
-        match: { kind: "regex", value: "(" },
-        action: { kind: "propose", text: "x" },
-      }),
-    ).toThrow(/regular/);
-  });
-
-  it("rechaza emit sin tipo y react sin emoji", () => {
-    expect(() =>
-      normalizeDef({
-        name: "m",
-        match: { kind: "always" },
-        action: { kind: "emit", kindName: "" },
-      }),
-    ).toThrow(MacroDefError);
-    expect(() =>
-      normalizeDef({
-        name: "m",
-        match: { kind: "always" },
-        action: { kind: "react", emoji: "" },
-      }),
-    ).toThrow(MacroDefError);
+  it("rechaza source que no compila, con MacroDefError", () => {
+    expect(() => normalizeDef({ name: "x", source: "on message:" })).toThrow(
+      MacroDefError,
+    );
   });
 });
 
@@ -111,57 +43,26 @@ describe("compileMacro", () => {
     name: "x",
     enabled: true,
     priority: 5,
-    stop: true,
-    match: { kind: "contains", value: "hola" },
-    action: { kind: "propose", text: "hey" },
+    stop: false,
+    source: SRC,
   };
 
-  it("usa prefijo dyn: en el nombre y conserva prioridad/stop", () => {
+  it("usa prefijo dyn: y conserva prioridad/stop", () => {
     const macro = compileMacro(base);
     expect(macro.name).toBe("dyn:abc");
     expect(macro.priority).toBe(5);
-    expect(macro.stop).toBe(true);
+    expect(macro.stop).toBe(false);
   });
 
-  it("compila el matcher contains", () => {
+  it("el matcher refleja el when del source", () => {
     const macro = compileMacro(base);
-    expect(macro.match(msg("ey HOLA que tal"))).toBe(true);
-    expect(macro.match(msg("chau"))).toBe(false);
-  });
-
-  it("renderiza la plantilla con datos del mensaje", async () => {
-    const macro = compileMacro({
-      ...base,
-      action: { kind: "reply", text: "Hola {{senderName}}, dijiste: {{text}}" },
-    });
-    const { ctx, calls } = fakeCtx("necesito ayuda");
-    await macro.run(ctx);
-    expect(calls).toEqual([
-      { fn: "reply", arg: "Hola Bob, dijiste: necesito ayuda" },
-    ]);
-  });
-
-  it("emit manda el kind y el texto del mensaje", async () => {
-    const macro = compileMacro({
-      ...base,
-      action: { kind: "emit", kindName: "ticket.propuesto" },
-    });
-    const { ctx, calls } = fakeCtx("arreglen el login");
-    await macro.run(ctx);
-    expect(calls[0]).toEqual({
-      fn: "emit",
-      arg: "ticket.propuesto",
-      arg2: { text: "arreglen el login" },
-    });
+    expect(macro.match({ text: "hola que tal" } as never)).toBe(true);
+    expect(macro.match({ text: "chau" } as never)).toBe(false);
   });
 });
 
 describe("createMacroStore", () => {
-  const input = {
-    name: "saludo",
-    match: { kind: "contains" as const, value: "hola" },
-    action: { kind: "propose" as const, text: "hey" },
-  };
+  const input = { name: "saludo", source: SRC };
 
   it("crea con id y notifica a los suscriptores", () => {
     const store = createMacroStore();
@@ -179,6 +80,14 @@ describe("createMacroStore", () => {
     const updated = store.update(def.id, { enabled: false });
     expect(updated?.enabled).toBe(false);
     expect(store.get(def.id)?.enabled).toBe(false);
+  });
+
+  it("rechaza update con source invalido", () => {
+    const store = createMacroStore();
+    const def = store.create(input);
+    expect(() => store.update(def.id, { source: "on message:" })).toThrow(
+      MacroDefError,
+    );
   });
 
   it("elimina por id", () => {

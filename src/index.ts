@@ -62,10 +62,17 @@ async function main(): Promise<void> {
   const macroStore = createMacroStore();
   const baseMacros = engine.list().map((m) => m.name);
   const syncDynamicMacros = () => {
-    const compiled = macroStore
-      .list()
-      .filter((d) => d.enabled)
-      .map(compileMacro);
+    const compiled = [];
+    for (const def of macroStore.list()) {
+      if (!def.enabled) continue;
+      try {
+        compiled.push(compileMacro(def));
+      } catch (err) {
+        // No deberia pasar (se valida al guardar), pero una macro rota no debe
+        // tumbar al resto.
+        logger.error({ err, macro: def.name }, "macro dinamica no compila");
+      }
+    }
     engine.replaceDynamic(compiled);
   };
   macroStore.subscribe(syncDynamicMacros);

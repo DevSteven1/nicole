@@ -179,34 +179,6 @@ async function loadStatus() {
   }
 }
 
-// ---------- form (mejora progresiva sobre htmx) ----------
-function show(form, selector, on) {
-  const node = form.querySelector(selector);
-  if (node) node.hidden = !on;
-}
-
-function enhanceForm(root) {
-  const form = root.querySelector("#macro-form");
-  if (!form) return;
-
-  const matchSel = form.querySelector('select[name="matchKind"]');
-  const actionSel = form.querySelector('select[name="actionKind"]');
-
-  const sync = () => {
-    const m = matchSel.value;
-    show(form, "[data-match-value]", m !== "always");
-    show(form, "[data-match-flags]", m === "regex");
-    const a = actionSel.value;
-    show(form, "[data-action-text]", a === "reply" || a === "propose");
-    show(form, "[data-action-emoji]", a === "react");
-    show(form, "[data-action-kind]", a === "emit");
-  };
-
-  matchSel.addEventListener("change", sync);
-  actionSel.addEventListener("change", sync);
-  sync();
-}
-
 // ---------- arranque ----------
 document.getElementById("filters").addEventListener("click", (e) => {
   const btn = e.target.closest(".flt");
@@ -222,11 +194,6 @@ document.getElementById("tabs").addEventListener("click", (e) => {
   const name = btn.dataset.tab;
   document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("is-on", b === btn));
   document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("is-on", p.dataset.pane === name));
-});
-
-// htmx reinserta el panel de macros: re-enganchamos el form cada vez.
-document.body.addEventListener("htmx:afterSwap", (e) => {
-  if (e.target.id === "macros-panel") enhanceForm(e.target);
 });
 
 function connect() {
