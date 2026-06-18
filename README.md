@@ -44,6 +44,15 @@ pnpm test         # correr las pruebas
 - `OPENCODE_API_KEY`: clave de OpenCode Go. Sin ella la IA queda desactivada.
 - `OPENCODE_BASE_URL` (default `https://opencode.ai/zen/go/v1`) y
   `OPENCODE_MODEL` (default `kimi-k2.7-code`).
+- `EMIT_ENABLED` (default `false`): en `false` el handoff (`ctx.emit`) solo
+  loguea la intencion. Poner `true` (mas `EMIT_WEBHOOK_URL`) para mandarla de
+  verdad.
+- `EMIT_WEBHOOK_URL`: webhook generico (no atado a n8n) que recibe la intencion
+  por HTTP POST. Sin url, el handoff sigue solo logueando.
+- `EMIT_TIMEOUT_MS` (default `10000`) y `EMIT_RETRIES` (default `2`): timeout y
+  reintentos del envio al webhook.
+- `WEB_ENABLED` (default `true`): consola web embebida. `WEB_HOST` (default
+  `127.0.0.1`) y `WEB_PORT` (default `4321`).
 - `LOG_LEVEL` (default `info`) y `BAILEYS_LOG_LEVEL` (default `warn`).
 
 Las variables se pueden poner en un archivo `.env` (ver `.env.example`); nicole
@@ -72,7 +81,8 @@ comportamiento nuevo es escribir una macro nueva. Lo que ofrece el contexto:
 - `reply` / `send` / `react`: envian (bloqueado en read-only).
 - `ai`: razonar con la IA (via `LLMProvider`).
 - `propose`: proponer una respuesta sin enviarla (seguro en read-only).
-- `emit`: emitir una intencion estructurada para otro agente (handoff desacoplado).
+- `emit`: emitir una intencion estructurada para otro agente (handoff
+  desacoplado). Por defecto loguea; con `EMIT_ENABLED=true` la manda a un webhook.
 - `memory`: historial reciente del chat.
 - `state`: estado clave-valor por chat (para recordar entre mensajes).
 
@@ -83,6 +93,21 @@ comportamiento nuevo es escribir una macro nueva. Lo que ofrece el contexto:
 - `triage`: lee la conversacion de soporte y, si hay un pedido claro, emite un
   ticket propuesto (`ticket.propuesto`); si es vago, propone que falta preguntar.
   No re-propone tickets ya abiertos en el chat (dedup por estado).
+
+## Consola web
+
+nicole trae una consola embebida (sin build, htmx + SSE) para observar en vivo y
+crear macros. Por defecto en `http://127.0.0.1:4321` (se apaga con
+`WEB_ENABLED=false`). Ofrece:
+
+- Cinta de eventos en vivo, codificada por color: mensajes entrantes, propuestas
+  (`propose`), intenciones emitidas (`emit`), envios y estado del sistema.
+- Vista por chat con los tickets que nicole fue proponiendo.
+- Editor de macros: crea reglas declarativas (matcher + accion) que el motor
+  aplica en caliente, sin reiniciar. Las macros base (codigo) se listan como
+  solo lectura.
+
+Es solo observabilidad y configuracion: no saltea el read-only ni el handoff.
 
 ## Estado
 
@@ -100,7 +125,8 @@ Fase de soporte (en curso):
 - [x] Memoria por chat + IA en el contexto (`ai` / `propose` / `emit`)
 - [x] Macro de triage: propone tickets a partir de pedidos de soporte
 - [x] Dedup: no re-proponer un ticket ya emitido en el mismo chat
-- [ ] Handoff real: emitir la intencion al agente que crea el ticket
+- [x] Handoff real: emitir la intencion a un webhook (detras de `EMIT_ENABLED`)
+- [x] Consola web: observacion en vivo y editor de macros
 - [ ] Respuestas automaticas (fase avanzada)
 
 ## Pendientes

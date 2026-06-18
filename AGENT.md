@@ -134,10 +134,22 @@ Estructura de `src/`:
   `messenger.ts` (implementacion real + la de read-only), `normalize.ts` (mensaje
   crudo -> `IncomingMessage`) y `types.ts`.
 - `src/engine/`: el motor de macros. `types.ts` (`Macro`, `Matcher`, `Context`,
-  `Messenger`), `engine.ts` (registro y dispatch por prioridad), `matchers.ts`
-  (matchers componibles), `context.ts` (arma el `Context`), `memory.ts` (historial
-  por chat) y `state.ts` (estado clave-valor por chat). Es el corazon.
+  `Messenger`, `HandoffSink`), `engine.ts` (registro y dispatch por prioridad;
+  tambien registra/reemplaza las macros dinamicas), `matchers.ts` (matchers
+  componibles), `context.ts` (arma el `Context`), `memory.ts` (historial por chat),
+  `state.ts` (estado clave-valor por chat) y `macro-store.ts` (macros declarativas
+  creadas desde la consola: matcher + accion, se compilan a `Macro` en runtime).
+  Es el corazon.
+- `src/events.ts`: bus de eventos en memoria (`EventHub`) para la consola en vivo.
+  El motor y el contexto publican aca; es solo observabilidad (si nadie escucha,
+  no cuesta nada). No reemplaza al logger ni al choke point de read-only.
+- `src/web/`: la consola web embebida (htmx + SSE, sin build). `server.ts` (http
+  nativo: estaticos, stream SSE, CRUD de macros), `views.ts` (fragmentos htmx) y
+  `public/` (la UI: HTML/CSS/JS + `vendor/htmx.min.js`).
 - `src/llm/`: la abstraccion `LLMProvider` y sus adapters (`adapters/opencode.ts`).
+- `src/handoff/`: el sink del handoff (`sink.ts`): `createLoggingSink` (default,
+  solo loguea) y `createWebhookSink` (POST a un webhook generico, con reintentos).
+  Es la salida de `ctx.emit`, analoga al `Messenger` para WhatsApp.
 - `src/rules/`: las macros concretas (`log`, `ping`, `triage`). Se listan en
   `rules/index.ts`.
 
@@ -150,7 +162,8 @@ Estructura de `src/`:
   un proveedor fuera de `src/llm/adapters/`.
 - Acciones de una macro via `Context`: `reply`/`send`/`react` (envian, bloqueado
   en read-only), `ai` (razonar), `propose` (proponer respuesta sin enviar),
-  `emit` (handoff: emitir una intencion estructurada para otro agente), `memory`
+  `emit` (handoff: emitir una intencion estructurada para otro agente; por
+  defecto loguea, con `EMIT_ENABLED=true` la manda a un webhook), `memory`
   (historial del chat) y `state` (estado por chat).
 
 Como ejecutar: ver [README.md](README.md) (`pnpm dev`, `pnpm build`,
